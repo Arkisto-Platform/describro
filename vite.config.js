@@ -17,5 +17,5 @@ export default defineConfig((config) => ({
   esbuild: {
     drop: config.mode === 'production' ? ['console', 'debugger'] : [],
   },
-  base: ''
+  base: './'
 }));
