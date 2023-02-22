@@ -9,7 +9,7 @@
     "test:unit": "vitest --environment jsdom --root src/"
   },
   "dependencies": {
-    "@describo/crate-builder-component": "^0.22.0",
+    "@describo/crate-builder-component": "^0.23.1",
     "pinia": "^2.0.28",
     "vue": "^3.2.45",
     "vue-router": "^4.1.6"
