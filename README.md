@@ -29,3 +29,20 @@ npm run build
 ```sh
 npm run test:unit
 ```
+
+## Run with webpack
+
+compile and dev with HMR
+
+```sh
+npm run dev:webpack
+```
+
+and go to http://localhost:9000/
+
+Compile and minify for production
+```sh 
+npm run build:webpack
+```
+
+Files compiled in [dist](dist)
