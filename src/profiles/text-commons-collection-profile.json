@@ -44,6 +44,13 @@
           "temporalCoverage",
           "spatialCoverage"
         ]
+      },
+      {
+        "name": "Parts",
+        "description": "Files associated to this collection",
+        "inputs": [
+          "hasPart"
+        ]
       }
     ]
   },
