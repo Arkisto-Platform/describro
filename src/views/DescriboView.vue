@@ -3,6 +3,9 @@ import {ref, reactive, inject} from 'vue';
 import {profiles} from '../profiles';
 import emptyCrate from '../assets/empty-crate.json';
 import {ROCrate} from 'ro-crate';
+import {Lookup} from '../lookup';
+
+const lookup = new Lookup();
 
 const selectedProfile = 1;
 const data = reactive({
@@ -70,10 +73,12 @@ const commands = {
   },
 
   async addFiles() {
+    data.loading = true;
     const crate = new ROCrate(data.crate);
     const dirHandle = data.dirHandle;
     await processFiles({crate, dirHandle, root: ''});
     data.crate = crate.toJSON();
+    data.loading = false;
   },
 
   async save() {
@@ -174,9 +179,7 @@ async function processFiles({crate, dirHandle, root}) {
     </el-form-item>
     <div v-if="data.dirHandle" class="text-large font-600">{{ data.dirHandle.name }}</div>
   </el-form>
-
-
-  <div class="describo" v-if="data.dirHandle">
+  <div class="describo" v-if="data.dirHandle" v-loading="data.loading">
     <describo-crate-builder v-loading="data.loading" @ready="data.loading = false" @save:crate="saveCrate"
                             :crate="data.crate" :profile="data.profile" :lookup="lookup">
     </describo-crate-builder>
