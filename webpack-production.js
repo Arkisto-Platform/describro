@@ -11,7 +11,7 @@ const configuration = merge(common, {
         minimizer: [new TerserPlugin(), new CssMinimizerPlugin()],
     },
     output: {
-        publicPath: "/",
+        publicPath: "",
     },
 });
 
