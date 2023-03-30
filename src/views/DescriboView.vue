@@ -1,17 +1,26 @@
 <script setup>
-import { ref, reactive, inject } from 'vue';
-import { profiles } from '../profiles';
+import {ref, reactive, inject} from 'vue';
+import {profiles} from '../profiles';
 import emptyCrate from '../assets/empty-crate.json';
+import {ROCrate} from 'ro-crate';
 
 const selectedProfile = 1;
 const data = reactive({
-  test: 'a', crate: emptyCrate, profile: profiles[selectedProfile], loading: false,
+  test: 'a',
+  crate: emptyCrate,
+  profile: profiles[selectedProfile],
+  loading: false,
   /** @type {?FileSystemFileHandle} */
   metadataHandle: null,
   /** @type {?FileSystemDirectoryHandle} */
   dirHandle: null,
   selectedProfile: selectedProfile
 });
+
+const notThisFiles = [
+  'ro-crate-metadata.json',
+  '.DS_Store'
+];
 
 var latestCrate = emptyCrate;
 
@@ -60,6 +69,13 @@ const commands = {
     }
   },
 
+  async addFiles() {
+    const crate = new ROCrate(data.crate);
+    const dirHandle = data.dirHandle;
+    await processFiles({crate, dirHandle, root: ''});
+    data.crate = crate.toJSON();
+  },
+
   async save() {
     if (data.dirHandle) {
       // create new crate metadata
@@ -70,7 +86,7 @@ const commands = {
           suggestedName: 'ro-crate-metadata.json',
           types: [{
             description: 'RO-Crate Metadata File',
-            accept: { 'application/json': ['.json'] }
+            accept: {'application/json': ['.json']}
           }]
         });
       } catch (error) {
@@ -94,12 +110,28 @@ function handleFileCommand(command) {
   if (command in commands) commands[command]();
 }
 
-function saveCrate({ crate }) {
+function saveCrate({crate}) {
   latestCrate = crate;
 }
 
 function testChange() {
   console.log(data.test);
+}
+
+async function processFiles({crate, dirHandle, root}) {
+
+  for await (const [key, handle] of dirHandle.entries()) {
+    let filePath = root ? root + '/' + key : key;
+    if (handle.kind === 'directory') {
+      await processFiles({crate, dirHandle: handle, root: filePath});
+    } else if (handle.kind === 'file' && !notThisFiles.includes(key)) {
+      const file = {
+        "@id": filePath,
+        "@type": "File"
+      }
+      crate.addValues(crate.rootDataset, 'hasPart', file);
+    }
+  }
 }
 </script>
 
@@ -112,13 +144,19 @@ function testChange() {
           <el-dropdown-menu>
             <el-dropdown-item command="open">
               <el-tooltip effect="dark" placement="right"
-                content="Open a crate directory or an empty directory to create a new crate">
+                          content="Open a crate directory or an empty directory to create a new crate">
                 Open Directory
+              </el-tooltip>
+            </el-dropdown-item>
+            <el-dropdown-item command="addFiles">
+              <el-tooltip effect="dark" placement="right"
+                          content="Add Files">
+                Add Files
               </el-tooltip>
             </el-dropdown-item>
             <el-dropdown-item command="save">
               <el-tooltip effect="dark" placement="right"
-                content="Save crate metadata to the currently opened directory">
+                          content="Save crate metadata to the currently opened directory">
                 Save
               </el-tooltip>
             </el-dropdown-item>
@@ -140,7 +178,7 @@ function testChange() {
 
   <div class="describo" v-if="data.dirHandle">
     <describo-crate-builder v-loading="data.loading" @ready="data.loading = false" @save:crate="saveCrate"
-      :crate="data.crate" :profile="data.profile">
+                            :crate="data.crate" :profile="data.profile" :lookup="lookup">
     </describo-crate-builder>
   </div>
 </template>
