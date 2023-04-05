@@ -10,13 +10,13 @@ import router from './router'
 import "@fortawesome/fontawesome-free/js/all";
 //import { config } from "@fortawesome/fontawesome-svg-core";
 import './assets/main.css'
-import DescriboCrateBuilder from "@describo/crate-builder-component"
+// import DescriboCrateBuilder from "@describo/crate-builder-component"
 
 const app = createApp(App)
 
 app.use(createPinia())
 app.use(router)
 app.use(ElementPlus)
-app.use(DescriboCrateBuilder)
+// app.use(DescriboCrateBuilder)
 app.mount('#app')
 

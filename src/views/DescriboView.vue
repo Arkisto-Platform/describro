@@ -1,16 +1,23 @@
 <script setup>
-import {ref, reactive, inject} from 'vue';
+import {ref, reactive, inject, computed, toRaw} from 'vue';
 import {profiles} from '../profiles';
 import emptyCrate from '../assets/empty-crate.json';
 import {ROCrate} from 'ro-crate';
 import {Lookup} from '../lookup';
+import EntityInput from "@/components/entity-input.component.vue";
+
+function loadEntity(id) {
+  console.log('hello', id);
+  data.entity = data.crate.getItem(id);
+}
 
 const lookup = new Lookup();
 
 const selectedProfile = 1;
 const data = reactive({
   test: 'a',
-  crate: emptyCrate,
+  crate: {},
+  entity: {},
   profile: profiles[selectedProfile],
   loading: false,
   /** @type {?FileSystemFileHandle} */
@@ -28,6 +35,7 @@ const notThisFiles = [
 ];
 
 var latestCrate = emptyCrate;
+let crate;
 
 const commands = {
   async newCrate() {
@@ -66,9 +74,10 @@ const commands = {
         let file = await data.metadataHandle.getFile();
         const content = await file.text();
         //console.log(content);
-        crate = JSON.parse(content);
+        crate = new ROCrate(JSON.parse(content), {array: true, link: true});
       }
       data.crate = crate;
+      data.entity = crate.rootDataset;
     } catch (error) {
       console.log(error);
     }
@@ -82,6 +91,11 @@ const commands = {
   },
 
   async save() {
+    console.log(data);
+    debugger
+    console.log(data.entity);
+    console.log(data.crate);
+    debugger;
     if (data.dirHandle) {
       // create new crate metadata
       data.metadataHandle = await data.dirHandle.getFileHandle('ro-crate-metadata.json', {create: true});
@@ -99,7 +113,7 @@ const commands = {
     }
     if (data.metadataHandle) {
       const writable = await data.metadataHandle.createWritable();
-      const content = JSON.stringify(latestCrate, null, 2);
+      const content = JSON.stringify(data.crate, null, 2);
       await writable.write(content);
       await writable.close();
     }
@@ -138,6 +152,13 @@ async function processFiles({crate, dirHandle, root}) {
     }
   }
 }
+
+function updateEntity(property, index, value, event) {
+  const prop = data.entity[property];
+  prop[index] = event;
+  data.entity[property] = prop;
+}
+
 </script>
 
 <template>
@@ -180,9 +201,31 @@ async function processFiles({crate, dirHandle, root}) {
     <div v-if="data.dirHandle" class="text-large font-600">Selected Directory: {{ data.dirHandle.name }}</div>
   </el-form>
   <div class="describo" v-if="data.dirHandle">
-    <describo-crate-builder v-loading="data.loading" @ready="data.loading = false" @save:crate="saveCrate"
-                            :crate="data.crate" :profile="data.profile" :lookup="lookup">
-    </describo-crate-builder>
+    <el-form>
+      <el-form-item :label="property" v-for="(value, property, index) in data.entity"
+                    class="w-full"
+                    :key="property + '_' + value">
+        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" class="py-1">
+          <entity-input v-if="Array.isArray(value)"
+                        v-for="(v,i) of value"
+                        :index="i"
+                        :name="property + '_' + i"
+                        :value="v"
+                        @change="updateEntity(property, i, v, $event)"
+                        @new-entity="loadEntity"/>
+          <entity-input v-else
+                        :index="index"
+                        :name="property + '_' + index"
+                        :value="value"
+                        @change="updateEntity(property, index, value, $event)"
+                        @new-entity="loadEntity"
+                        :disabled="property === '@id'"/>
+        </el-col>
+      </el-form-item>
+    </el-form>
+    <!--    <describo-crate-builder v-loading="data.loading" @ready="data.loading = false" @save:crate="saveCrate"-->
+    <!--                            :crate="data.crate" :profile="data.profile" :lookup="lookup">-->
+    <!--    </describo-crate-builder>-->
   </div>
 </template>
 
