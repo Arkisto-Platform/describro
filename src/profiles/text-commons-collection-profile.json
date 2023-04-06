@@ -95,7 +95,7 @@
         {
           "id": "http://schema.org/publisher",
           "name": "publisher",
-          "help": "The organization responsible for releasing this collection of data",
+          "help": "The organization responsible for releasing this dataset",
           "type": [
             "Organization"
           ],
@@ -104,7 +104,7 @@
         {
           "id": "http://schema.org/funder",
           "name": "funder",
-          "help": "Organization(s) responsible for funding the creation or collection of this data",
+          "help": "Organization(s) responsible for funding the creation or collection of this dataset",
           "type": [
             "Organization"
           ],
@@ -124,7 +124,7 @@
         {
           "id": "http://schema.org/description",
           "name": "description",
-          "help": "An abstract of the collection. Include as much detail as possible about the motivation and use of the collection, including things that we do not yet have properties for",
+          "help": "An abstract of the collection. Include as much detail as possible about the motivation and use of the dataset, including things that we do not yet have properties for",
           "type": [
             "TextArea"
           ],
@@ -255,7 +255,7 @@
         {
           "id": "http://schema.org/temporalCoverage",
           "name": "temporalCoverage",
-          "help": "The range of years of creation for items in this dataset eg 1900-1945. If there are sub collections with different coverages put this on the sub-collections not the top-level. ",
+          "help": "The range of years of creation for items in this collection eg 1900-1945. If there are sub collections with different coverages put this on the sub-collections not the top-level. ",
           "type": [
             "Text"
           ],
@@ -322,7 +322,7 @@
           "id": "https://schema.org/name",
           "name": "name",
           "label": "Name",
-          "help": "The name of this collection",
+          "help": "The name of this book",
           "required": true,
           "multiple": false,
           "type": [
@@ -332,7 +332,7 @@
         {
           "id": "http://schema.org/author",
           "name": "author",
-          "help": "The person or organization responsible for creating this collection of data",
+          "help": "The person or organization responsible for creating this book",
           "type": [
             "Person",
             "Organization"

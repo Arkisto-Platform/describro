@@ -33,6 +33,7 @@ function loadEntity(id) {
   } else {
     data.breadcrumb = [];
   }
+  data.definitions = getProfileClasses();
 }
 
 const data = reactive({
@@ -73,6 +74,7 @@ function findPropertyDefinition(property) {
     const def = find(defs.inputs, p => p.name === property);
     inputs.push(def);
   }
+  //TODO: Merge the inputs definitions?
   return inputs;
 }
 

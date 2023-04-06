@@ -15,7 +15,7 @@ function loadEntity(id) {
 }
 
 onMounted(() => {
-  console.log(props.definitions);
+  console.log();
 })
 
 </script>
