@@ -22,9 +22,18 @@ const notThisFiles = [
 ];
 
 function loadEntity(id) {
-  console.log('hello', id);
   data.entity = crate.getItem(id);
   $router.push({query: {id: encodeURIComponent(id)}});
+  if (id !== data.rootId) {
+    const index = data.breadcrumb.findIndex(b => b.id === id);
+    if (index >= 0) {
+      data.breadcrumb.splice(index + 1, data.breadcrumb.length - (index + 1));
+    } else {
+      data.breadcrumb.push({id, name: data.entity?.['name']?.[0] || data.entity['@id']});
+    }
+  } else {
+    data.breadcrumb = [];
+  }
 }
 
 const data = reactive({
@@ -38,7 +47,8 @@ const data = reactive({
   metadataHandle: null,
   /** @type {?FileSystemDirectoryHandle} */
   dirHandle: null,
-  selectedProfile: selectedProfile
+  selectedProfile: selectedProfile,
+  breadcrumb: []
 });
 
 onMounted(() => {
@@ -205,40 +215,50 @@ function updateEntity(property, index, value, event) {
     <div v-if="data.dirHandle" class="text-large font-600">Selected Directory: {{ data.dirHandle.name }}</div>
   </el-form>
   <div class="describo" v-if="data.dirHandle">
+    <el-col :span="24">
+      <el-row class="p-2">
+      <span>
+        <el-button :link="true"
+                   @click="updateRoute(data.rootId)">
+          {{ data.rootName }}
+        </el-button>
+        /
+      </span>
+        <span v-for="b in data.breadcrumb">
+        <el-button :link="true"
+                   @click="updateRoute(b.id)"
+                   :disabled="b.id === data.entity['@id']"
+                   v-if="data.entity['@id'] !== data.rootId">{{ b.name }}
+        </el-button>
+        /
+      </span>
+      </el-row>
+    </el-col>
     <el-row class="p-2">
-      <el-button :link="true"
-                 @click="updateRoute(data.rootId)">
-        {{ data.rootName }}
-      </el-button>
-      /
-      <el-button :link="true"
-                 @click="updateRoute(data.entity['@id'])"
-                 v-if="data.entity['@id'] !== data.rootId">{{ data.entity?.['name']?.[0] || data.entity['@id'] }}
-      </el-button>
-    </el-row>
-    <el-row class="p-2">
-      <el-form>
-        <el-form-item :label="property" v-for="(value, property, index) in data.entity"
-                      class="w-full"
-                      :key="property + '_' + value">
-          <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" class="py-1">
-            <entity-input v-if="Array.isArray(value)"
-                          v-for="(v,i) of value"
-                          :index="i"
-                          :name="property + '_' + i"
-                          :value="v"
-                          @change="updateEntity(property, i, v, $event)"
-                          @new-entity="loadEntity"/>
-            <entity-input v-else
-                          :index="index"
-                          :name="property + '_' + index"
-                          :value="value"
-                          @change="updateEntity(property, index, value, $event)"
-                          @new-entity="loadEntity"
-                          :disabled="property === '@id'"/>
-          </el-col>
-        </el-form-item>
-      </el-form>
+      <el-col :span="24">
+        <el-form>
+          <el-form-item :label="property" v-for="(value, property, index) in data.entity"
+                        class="w-full"
+                        :key="property + '_' + value">
+            <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" class="py-1">
+              <entity-input v-if="Array.isArray(value)"
+                            v-for="(v,i) of value"
+                            :index="i"
+                            :name="property + '_' + i"
+                            :value="v"
+                            @change="updateEntity(property, i, v, $event)"
+                            @new-entity="loadEntity"/>
+              <entity-input v-else
+                            :index="index"
+                            :name="property + '_' + index"
+                            :value="value"
+                            @change="updateEntity(property, index, value, $event)"
+                            @new-entity="loadEntity"
+                            :disabled="property === '@id'"/>
+            </el-col>
+          </el-form-item>
+        </el-form>
+      </el-col>
     </el-row>
   </div>
 </template>
