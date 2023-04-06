@@ -16,7 +16,8 @@ const emit = defineEmits(['updateValue', 'newEntity'])
       <el-button v-if="value['@id']"
                  :name="name"
                  :id="name"
-                 @click="$emit('newEntity', value['@id'])">
+                 @click="$emit('newEntity', value['@id'])"
+                 type="primary">
         {{ value['name']?.[0] || value['@id'] }}
       </el-button>
       <el-input v-else

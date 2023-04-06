@@ -1,6 +1,6 @@
 <script setup>
 import {RouterLink, RouterView} from 'vue-router';
-import HelloWorld from './components/HelloWorld.vue';
+
 import {reactive} from "vue";
 
 const {detect} = require('detect-browser');
@@ -18,8 +18,6 @@ if (browser.name !== 'chrome' && parseFloat(browser.version) < 86) {
 
 <template>
   <header class="flex space-x-2 content-center items-center">
-    <!--    <img alt="Describo" class="logo" src="@/assets/logo.svg" width="25" height="25" />-->
-    <!--    <span class="">RO-Crate Editor</span>-->
     <el-row :gutter="10" class="flex items-center justify-center min-w-md">
       <el-col :span="8">
         <span class="flex flex-col justify-center items-center">

@@ -1,12 +1,11 @@
 <script setup>
-import {reactive, onMounted, onUpdated} from 'vue';
+import {reactive, onMounted, watch, onUpdated, toRaw} from 'vue';
 import {useRouter, useRoute} from 'vue-router'
-import {profiles} from '../profiles';
-import emptyCrate from '../assets/empty-crate.json';
+import {profiles} from '@/profiles';
 import {ROCrate} from 'ro-crate';
-import {Lookup} from '../lookup';
-import EntityInput from "@/components/entity-input.component.vue";
-import {first} from 'lodash';
+import {Lookup} from '@/lookup';
+import EntityProperty from "@/components/EntityProperty.vue";
+import {first, find} from 'lodash';
 
 const $router = useRouter();
 const $route = useRoute();
@@ -48,11 +47,44 @@ const data = reactive({
   /** @type {?FileSystemDirectoryHandle} */
   dirHandle: null,
   selectedProfile: selectedProfile,
-  breadcrumb: []
+  breadcrumb: [],
+  definitions: []
 });
 
 onMounted(() => {
-  console.log($route.query.id);
+  console.log(`Route: $route.query.id`);
+});
+
+function getProfileClasses() {
+  const classes = data.profile?.classes;
+  const types = data.entity?.['@type'];
+  const defs = [];
+  for (let c of Object.keys(classes)) {
+    if (types.includes(c)) {
+      defs.push(classes[c])
+    }
+  }
+  return defs;
+}
+
+function findPropertyDefinition(property) {
+  const inputs = [];
+  for (const defs of data.definitions) {
+    const def = find(defs.inputs, p => p.name === property);
+    inputs.push(def);
+  }
+  return inputs;
+}
+
+watch($route, (c, o) => {
+  if (!data.metadataHandle) { //checking crate if it has not been loaded
+    window.alert('Directory not loaded!');
+  } else {
+    const id = decodeURIComponent(c.query?.id);
+    if (id) {
+      loadEntity(id);
+    }
+  }
 });
 
 function updateRoute(id) {
@@ -60,11 +92,9 @@ function updateRoute(id) {
   loadEntity(id);
 }
 
-var latestCrate = emptyCrate;
-
 const commands = {
   async newCrate() {
-    crate = emptyCrate;
+    crate = new ROCrate({}, {array: true, link: true});
     data.metadataHandle = null;
   },
   async openFile() {
@@ -102,6 +132,7 @@ const commands = {
         crate = new ROCrate(JSON.parse(content), {array: true, link: true});
       }
       data.entity = crate.rootDataset;
+      data.definitions = getProfileClasses();
       data.rootId = crate.rootId;
       data.rootName = first(crate.rootDataset['name']) || 'Start';
       $router.push({query: {id: encodeURIComponent(crate.rootId)}});
@@ -144,7 +175,6 @@ const commands = {
 
 function changeProfile(index) {
   data.profile = profiles[index];
-
 }
 
 function handleFileCommand(command) {
@@ -167,7 +197,7 @@ async function processFiles({crate, dirHandle, root}) {
   }
 }
 
-function updateEntity(property, index, value, event) {
+function updateEntity({property, index, value, event}) {
   const prop = data.entity[property];
   prop[index] = event;
   data.entity[property] = prop;
@@ -179,7 +209,7 @@ function updateEntity(property, index, value, event) {
   <el-form :inline="true" class="bg-slate-200 p-2">
     <el-form-item class="">
       <el-dropdown trigger="click" @command="handleFileCommand">
-        <el-button type="primary">File &nbsp; <i class="fa-solid fa-caret-down"></i></el-button>
+        <el-button type="primary">File &nbsp;<i class="fa-solid fa-caret-down"></i></el-button>
         <template #dropdown>
           <el-dropdown-menu>
             <el-dropdown-item command="open">
@@ -236,31 +266,23 @@ function updateEntity(property, index, value, event) {
     </el-col>
     <el-row class="p-2">
       <el-col :span="24">
-        <el-form>
-          <el-form-item :label="property" v-for="(value, property, index) in data.entity"
-                        class="w-full"
-                        :key="property + '_' + value">
-            <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" class="py-1">
-              <entity-input v-if="Array.isArray(value)"
-                            v-for="(v,i) of value"
-                            :index="i"
-                            :name="property + '_' + i"
-                            :value="v"
-                            @change="updateEntity(property, i, v, $event)"
-                            @new-entity="loadEntity"/>
-              <entity-input v-else
-                            :index="index"
-                            :name="property + '_' + index"
-                            :value="value"
-                            @change="updateEntity(property, index, value, $event)"
-                            @new-entity="loadEntity"
-                            :disabled="property === '@id'"/>
-            </el-col>
-          </el-form-item>
+        <el-form label-width="140px">
+          <entity-property v-for="(value, property, index) in data.entity"
+                           :key="property + '_' + value"
+                           :property="property" :value="value" :index="index"
+                           @load-entity="loadEntity" @update-entity="updateEntity"
+                           :definitions="findPropertyDefinition(property)"/>
         </el-form>
       </el-col>
     </el-row>
   </div>
+  <div v-else class="flex items-center justify-center h-screen">
+    <div class="font-bold rounded-lg border shadow-lg p-10">
+      Welcome to Crate-O <br/>
+      Select File to start
+    </div>
+  </div>
+
 </template>
 
 <style>
