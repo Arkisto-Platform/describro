@@ -1,23 +1,37 @@
 <script setup>
-import {ref, reactive, inject, computed, toRaw} from 'vue';
+import {reactive, onMounted, onUpdated} from 'vue';
+import {useRouter, useRoute} from 'vue-router'
 import {profiles} from '../profiles';
 import emptyCrate from '../assets/empty-crate.json';
 import {ROCrate} from 'ro-crate';
 import {Lookup} from '../lookup';
 import EntityInput from "@/components/entity-input.component.vue";
+import {first} from 'lodash';
+
+const $router = useRouter();
+const $route = useRoute();
+
+let crate;
+const lookup = new Lookup();
+const selectedProfile = 1;
+const notThisFiles = [
+  'ro-crate-metadata.json',
+  '.DS_Store',
+  '.git',
+  'node_modules'
+];
 
 function loadEntity(id) {
   console.log('hello', id);
-  data.entity = data.crate.getItem(id);
+  data.entity = crate.getItem(id);
+  $router.push({query: {id: encodeURIComponent(id)}});
 }
 
-const lookup = new Lookup();
-
-const selectedProfile = 1;
 const data = reactive({
   test: 'a',
-  crate: {},
   entity: {},
+  rootId: '',
+  rootName: '',
   profile: profiles[selectedProfile],
   loading: false,
   /** @type {?FileSystemFileHandle} */
@@ -27,19 +41,20 @@ const data = reactive({
   selectedProfile: selectedProfile
 });
 
-const notThisFiles = [
-  'ro-crate-metadata.json',
-  '.DS_Store',
-  '.git',
-  'node_modules'
-];
+onMounted(() => {
+  console.log($route.query.id);
+});
+
+function updateRoute(id) {
+  $router.push({query: {id: encodeURIComponent(id)}});
+  loadEntity(id);
+}
 
 var latestCrate = emptyCrate;
-let crate;
 
 const commands = {
   async newCrate() {
-    data.crate = emptyCrate;
+    crate = emptyCrate;
     data.metadataHandle = null;
   },
   async openFile() {
@@ -53,7 +68,7 @@ const commands = {
     let file = await data.metadataHandle.getFile();
     const content = await file.text();
     //console.log(content);
-    data.crate = JSON.parse(content);
+    crate = JSON.parse(content);
   },
 
   async open() {
@@ -61,7 +76,7 @@ const commands = {
       data.dirHandle = await window.showDirectoryPicker();
       // reset crate
       data.metadataHandle = null;
-      let crate = emptyCrate;
+      crate = new ROCrate({}, {array: true, link: true});
       try {
         data.metadataHandle = await data.dirHandle.getFileHandle('ro-crate-metadata.json');
       } catch (error) {
@@ -76,26 +91,23 @@ const commands = {
         //console.log(content);
         crate = new ROCrate(JSON.parse(content), {array: true, link: true});
       }
-      data.crate = crate;
       data.entity = crate.rootDataset;
+      data.rootId = crate.rootId;
+      data.rootName = first(crate.rootDataset['name']) || 'Start';
+      $router.push({query: {id: encodeURIComponent(crate.rootId)}});
     } catch (error) {
       console.log(error);
     }
   },
 
   async addFiles() {
-    const crate = new ROCrate(data.crate);
+    let newCrate = new ROCrate(crate);
     const dirHandle = data.dirHandle;
     await processFiles({crate, dirHandle, root: ''});
-    data.crate = crate.toJSON();
+    //crate = newCrate.toJSON();
   },
 
   async save() {
-    console.log(data);
-    debugger
-    console.log(data.entity);
-    console.log(data.crate);
-    debugger;
     if (data.dirHandle) {
       // create new crate metadata
       data.metadataHandle = await data.dirHandle.getFileHandle('ro-crate-metadata.json', {create: true});
@@ -113,7 +125,7 @@ const commands = {
     }
     if (data.metadataHandle) {
       const writable = await data.metadataHandle.createWritable();
-      const content = JSON.stringify(data.crate, null, 2);
+      const content = JSON.stringify(crate, null, 2);
       await writable.write(content);
       await writable.close();
     }
@@ -127,14 +139,6 @@ function changeProfile(index) {
 
 function handleFileCommand(command) {
   if (command in commands) commands[command]();
-}
-
-function saveCrate({crate}) {
-  latestCrate = crate;
-}
-
-function testChange() {
-  console.log(data.test);
 }
 
 async function processFiles({crate, dirHandle, root}) {
@@ -201,31 +205,41 @@ function updateEntity(property, index, value, event) {
     <div v-if="data.dirHandle" class="text-large font-600">Selected Directory: {{ data.dirHandle.name }}</div>
   </el-form>
   <div class="describo" v-if="data.dirHandle">
-    <el-form>
-      <el-form-item :label="property" v-for="(value, property, index) in data.entity"
-                    class="w-full"
-                    :key="property + '_' + value">
-        <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" class="py-1">
-          <entity-input v-if="Array.isArray(value)"
-                        v-for="(v,i) of value"
-                        :index="i"
-                        :name="property + '_' + i"
-                        :value="v"
-                        @change="updateEntity(property, i, v, $event)"
-                        @new-entity="loadEntity"/>
-          <entity-input v-else
-                        :index="index"
-                        :name="property + '_' + index"
-                        :value="value"
-                        @change="updateEntity(property, index, value, $event)"
-                        @new-entity="loadEntity"
-                        :disabled="property === '@id'"/>
-        </el-col>
-      </el-form-item>
-    </el-form>
-    <!--    <describo-crate-builder v-loading="data.loading" @ready="data.loading = false" @save:crate="saveCrate"-->
-    <!--                            :crate="data.crate" :profile="data.profile" :lookup="lookup">-->
-    <!--    </describo-crate-builder>-->
+    <el-row class="p-2">
+      <el-button :link="true"
+                 @click="updateRoute(data.rootId)">
+        {{ data.rootName }}
+      </el-button>
+      /
+      <el-button :link="true"
+                 @click="updateRoute(data.entity['@id'])"
+                 v-if="data.entity['@id'] !== data.rootId">{{ data.entity?.['name']?.[0] || data.entity['@id'] }}
+      </el-button>
+    </el-row>
+    <el-row class="p-2">
+      <el-form>
+        <el-form-item :label="property" v-for="(value, property, index) in data.entity"
+                      class="w-full"
+                      :key="property + '_' + value">
+          <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24" class="py-1">
+            <entity-input v-if="Array.isArray(value)"
+                          v-for="(v,i) of value"
+                          :index="i"
+                          :name="property + '_' + i"
+                          :value="v"
+                          @change="updateEntity(property, i, v, $event)"
+                          @new-entity="loadEntity"/>
+            <entity-input v-else
+                          :index="index"
+                          :name="property + '_' + index"
+                          :value="value"
+                          @change="updateEntity(property, index, value, $event)"
+                          @new-entity="loadEntity"
+                          :disabled="property === '@id'"/>
+          </el-col>
+        </el-form-item>
+      </el-form>
+    </el-row>
   </div>
 </template>
 
