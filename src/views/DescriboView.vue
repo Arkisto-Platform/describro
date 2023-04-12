@@ -6,6 +6,7 @@ import {ROCrate} from 'ro-crate';
 import {Lookup} from '@/lookup';
 import EntityProperty from "@/components/EntityProperty.vue";
 import {first, find} from 'lodash';
+import {v4 as uuidv4} from 'uuid';
 
 const $router = useRouter();
 const $route = useRoute();
@@ -61,9 +62,9 @@ onMounted(() => {
   console.log(`Route: $route.query.id`);
 });
 
-function getProfileClasses() {
+function getProfileClasses(type) {
   const classes = data.profile?.classes;
-  const types = data.entity?.['@type'];
+  let types = type || data.entity?.['@type'];
   const defs = [];
   for (let c of Object.keys(classes)) {
     if (types.includes(c)) {
@@ -87,9 +88,13 @@ watch($route, (c, o) => {
   if (!data.metadataHandle) { //checking crate if it has not been loaded
     window.alert('Directory not loaded!');
   } else {
-    const id = decodeURIComponent(c.query?.id);
-    if (id) {
-      loadEntity(id);
+    if (c.query.newItem) {
+
+    } else {
+      const id = decodeURIComponent(c.query?.id);
+      if (id) {
+        loadEntity(id);
+      }
     }
   }
 });
@@ -214,6 +219,26 @@ function updateEntity({property, index, value, event}) {
   }
 }
 
+function addItem({reference, type, property}) {
+  $router.push({query: {newItem: true, type: type}});
+  const classes = data.profile?.classes;
+  const definitions = classes?.[type];
+  const newItem = {
+    "@id": `#${uuidv4()}`,
+    "@type": type
+  }
+  const inputs = definitions?.inputs;
+  for (let item of inputs) {
+    if (item.multiple) { // does this matter?
+      newItem[item.name] = [""];
+    } else {
+      newItem[item.name] = "";
+    }
+  }
+  crate.addValues(reference, property, newItem);
+  data.entity = crate.getItem(newItem['@id']);
+}
+
 </script>
 
 <template>
@@ -281,8 +306,10 @@ function updateEntity({property, index, value, event}) {
           <entity-property v-for="(value, property, index) in data.entity"
                            :key="property + '_' + value"
                            :property="property" :value="value" :index="index"
+                           :id="data.entity['@id']"
                            @load-entity="loadEntity" @update-entity="updateEntity"
-                           :definitions="findPropertyDefinition(property)"/>
+                           :definitions="findPropertyDefinition(property)"
+                           @add-item="addItem"/>
         </el-form>
       </el-col>
     </el-row>

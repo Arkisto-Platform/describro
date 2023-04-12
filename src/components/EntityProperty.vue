@@ -3,13 +3,13 @@ import {onMounted, onUpdated, reactive, toRaw} from "vue";
 import EntityInput from "@/components/EntityInput.vue";
 import {find} from 'lodash';
 
-const props = defineProps(['value', 'property', 'index', 'definitions']);
+const props = defineProps(['id', 'value', 'property', 'index', 'definitions']);
 const data = reactive({
   newValue: props.value,
   showNewItem: false
 });
 
-const emit = defineEmits(['updateEntity', 'loadEntity'])
+const emit = defineEmits(['updateEntity', 'loadEntity', 'addItem']);
 
 function loadEntity(id) {
   emit('loadEntity', id);
@@ -17,6 +17,10 @@ function loadEntity(id) {
 
 function newItem({type, event}) {
   data.showNewItem = type;
+}
+
+function addItem({type}) {
+  emit('addItem', {reference: props.id, type, property: props.property});
 }
 
 onMounted(() => {
@@ -48,15 +52,23 @@ onMounted(() => {
             <el-button type="default" v-if="definition?.multiple" v-show="data.showNewItem !== t"
                        @click="newItem({type: t, event: $event})">+&nbsp;{{ t }}
             </el-button>
-            <div v-if="data.showNewItem === t">
-              <div>
-                <el-button @click="()=>data.showNewItem = ''">x</el-button>
-                <div>
-                  <br>
-                  Auto complete here...
-                  <br/>
-                </div>
-              </div>
+            <div class="p-2">
+              <el-card class="box-card" v-if="data.showNewItem === t">
+                <template #header>
+                  <div class="card-header">
+                    <span class="text-2xl"><el-button :link="false" @click="()=>data.showNewItem = ''">X</el-button> Add {{ t }}</span>
+                  </div>
+                </template>
+                <el-row class="row-bg mb-2">
+                  <p>Lookup an existing {{ t }} or create a new one</p>
+                </el-row>
+                <el-row class="row-bg mb-2">
+                  <el-input placeholder="Not implemented"></el-input>
+                </el-row>
+                <el-row class="row-bg mb-2">
+                  <el-button @click="addItem({type: t})">Add New Item ></el-button>
+                </el-row>
+              </el-card>
             </div>
           </div>
         </div>
