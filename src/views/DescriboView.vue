@@ -88,9 +88,7 @@ watch($route, (c, o) => {
   if (!data.metadataHandle) { //checking crate if it has not been loaded
     window.alert('Directory not loaded!');
   } else {
-    if (c.query.newItem) {
-
-    } else {
+    if (c.query?.id) {
       const id = decodeURIComponent(c.query?.id);
       if (id) {
         loadEntity(id);
@@ -220,7 +218,6 @@ function updateEntity({property, index, value, event}) {
 }
 
 function addItem({reference, type, property}) {
-  $router.push({query: {newItem: true, type: type}});
   const classes = data.profile?.classes;
   const definitions = classes?.[type];
   const newItem = {
@@ -236,7 +233,7 @@ function addItem({reference, type, property}) {
     }
   }
   crate.addValues(reference, property, newItem);
-  data.entity = crate.getItem(newItem['@id']);
+  loadEntity(newItem['@id']);
 }
 
 </script>
