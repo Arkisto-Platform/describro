@@ -20,15 +20,20 @@ const notThisFiles = [
   'node_modules'
 ];
 
+function updateBreadcrumb(index) {
+  data.breadcrumb.splice(index + 1, data.breadcrumb.length - (index + 1));
+  updateRoute(data.breadcrumb[index]['@id']);
+}
+
 function loadEntity(id) {
   data.entity = crate.getItem(id);
   $router.push({query: {id: encodeURIComponent(id)}});
   if (id !== data.rootId) {
-    const index = data.breadcrumb.findIndex(b => b.id === id);
+    const index = data.breadcrumb.findIndex(b => b['@id'] === id);
     if (index >= 0) {
       data.breadcrumb.splice(index + 1, data.breadcrumb.length - (index + 1));
     } else {
-      data.breadcrumb.push({id, name: data.entity?.['name']?.[0] || data.entity['@id']});
+      data.breadcrumb.push(data.entity);
     }
   } else {
     data.breadcrumb = [];
@@ -200,9 +205,13 @@ async function processFiles({crate, dirHandle, root}) {
 }
 
 function updateEntity({property, index, value, event}) {
-  const prop = data.entity[property];
-  prop[index] = event;
-  data.entity[property] = prop;
+  if (property === '@id') {
+    data.entity[property] = event.target.value;
+  } else {
+    const prop = data.entity[property];
+    prop[index] = event.target.value;
+    data.entity[property] = prop;
+  }
 }
 
 </script>
@@ -256,11 +265,11 @@ function updateEntity({property, index, value, event}) {
         </el-button>
         /
       </span>
-        <span v-for="b in data.breadcrumb">
+        <span v-for="(b,i) in data.breadcrumb">
         <el-button :link="true"
-                   @click="updateRoute(b.id)"
-                   :disabled="b.id === data.entity['@id']"
-                   v-if="data.entity['@id'] !== data.rootId">{{ b.name }}
+                   @click="updateBreadcrumb(i)"
+                   :disabled="b['@id'] === data.entity['@id']"
+        >{{ b.name?.[0] || b['@id'] }}
         </el-button>
         /
       </span>
@@ -268,7 +277,7 @@ function updateEntity({property, index, value, event}) {
     </el-col>
     <el-row class="p-2">
       <el-col :span="24">
-        <el-form label-width="140px">
+        <el-form label-width="150px">
           <entity-property v-for="(value, property, index) in data.entity"
                            :key="property + '_' + value"
                            :property="property" :value="value" :index="index"
@@ -278,7 +287,7 @@ function updateEntity({property, index, value, event}) {
       </el-col>
     </el-row>
   </div>
-  <div v-else class="flex items-center justify-center h-screen">
+  <div v-else class="flex items-center justify-center h-[calc(100vh-110px)] overflow-auto">
     <div class="font-bold rounded-lg border shadow-lg p-10">
       Welcome to Crate-O <br/>
       Select File to start

@@ -5,13 +5,18 @@ import {find} from 'lodash';
 
 const props = defineProps(['value', 'property', 'index', 'definitions']);
 const data = reactive({
-  newValue: props.value
+  newValue: props.value,
+  showNewItem: false
 });
 
 const emit = defineEmits(['updateEntity', 'loadEntity'])
 
 function loadEntity(id) {
   emit('loadEntity', id);
+}
+
+function newItem({type, event}) {
+  data.showNewItem = type;
 }
 
 onMounted(() => {
@@ -39,11 +44,23 @@ onMounted(() => {
                     :disabled="property === '@id'"/>
       <div v-for="definition in definitions">
         <div v-if="definition?.type">
-          <el-button-group v-for="t of definition?.type">
-            <el-button type="default" v-if="definition?.multiple">+&nbsp;{{ t }}</el-button>
-          </el-button-group>
+          <div v-for="t of definition?.type">
+            <el-button type="default" v-if="definition?.multiple" v-show="data.showNewItem !== t"
+                       @click="newItem({type: t, event: $event})">+&nbsp;{{ t }}
+            </el-button>
+            <div v-if="data.showNewItem === t">
+              <div>
+                <el-button @click="()=>data.showNewItem = ''">x</el-button>
+                <div>
+                  <br>
+                  Auto complete here...
+                  <br/>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div>{{ definition?.help }}</div>
+        <el-alert v-if="definition?.help" :title="definition?.help" type="info" :closable="false"/>
       </div>
     </el-col>
   </el-form-item>

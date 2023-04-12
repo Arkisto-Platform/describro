@@ -7,7 +7,7 @@ const data = reactive({
   newValue: props.value
 });
 
-const emit = defineEmits(['updateValue', 'newEntity'])
+const emit = defineEmits(['newEntity'])
 
 </script>
 <template>
