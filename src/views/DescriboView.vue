@@ -1,12 +1,36 @@
 <script setup>
-import {reactive, onMounted, watch, onUpdated, toRaw} from 'vue';
+import {reactive, onMounted, watch, onUpdated, ref, inject, provide} from 'vue';
 import {useRouter, useRoute} from 'vue-router'
 import {profiles} from '@/profiles';
 import {ROCrate} from 'ro-crate';
 import {Lookup} from '@/lookup';
 import EntityProperty from "@/components/EntityProperty.vue";
-import {first, find} from 'lodash';
+import {first, find, uniqBy} from 'lodash';
+
 import {v4 as uuidv4} from 'uuid';
+
+//import {crateDataService} from "@/crate.service";
+const entitiesByType = {};
+const crateDataService = (type, queryString) => {
+  if (!crate) {
+    return [];
+  }
+  if (!entitiesByType[type]) {
+    const regexp = new RegExp(type);
+    entitiesByType[type] = Array.from(crate.entities({filter: {'@type': regexp}}));
+  }
+  const results = queryString
+      ? entitiesByType[type].filter((e) => {
+        for (const name of e.name) {
+          return name.toLowerCase().indexOf(queryString.toLowerCase()) > -1;
+        }
+      })
+      : entitiesByType[type];
+
+  return results;
+}
+
+provide('dataService', crateDataService);
 
 const $router = useRouter();
 const $route = useRoute();
@@ -14,6 +38,7 @@ const $route = useRoute();
 let crate;
 const lookup = new Lookup();
 const selectedProfile = 1;
+
 const notThisFiles = [
   'ro-crate-metadata.json',
   '.DS_Store',
@@ -27,7 +52,9 @@ function updateBreadcrumb(index) {
 }
 
 function loadEntity(id) {
+  data.definitions = getProfileClasses();
   data.entity = crate.getItem(id);
+  data.entityTypesDefinitions = getEntityTypesDefinitions();
   $router.push({query: {id: encodeURIComponent(id)}});
   if (id !== data.rootId) {
     const index = data.breadcrumb.findIndex(b => b['@id'] === id);
@@ -39,12 +66,12 @@ function loadEntity(id) {
   } else {
     data.breadcrumb = [];
   }
-  data.definitions = getProfileClasses();
 }
 
 const data = reactive({
   test: 'a',
   entity: {},
+  entityTypesDefinitions: [],
   rootId: '',
   rootName: '',
   profile: profiles[selectedProfile],
@@ -55,7 +82,9 @@ const data = reactive({
   dirHandle: null,
   selectedProfile: selectedProfile,
   breadcrumb: [],
-  definitions: []
+  definitions: [],
+  entitySpan: 24,
+  addItemSpan: 0
 });
 
 onMounted(() => {
@@ -74,14 +103,47 @@ function getProfileClasses(type) {
   return defs;
 }
 
+function getEntityTypesDefinitions() {
+  //Note: I'm sure you can do this in one line with lodash :P
+  const classes = data.profile?.classes;
+  let types = data.entity?.['@type'];
+  let inputs = [];
+  for (let c of Object.keys(classes)) {
+    let moreInputs = [];
+    if (types.includes(c)) {
+      if (classes[c].inputs) {
+        moreInputs = inputs.concat(classes[c].inputs);
+      }
+    }
+    inputs = moreInputs.concat(inputs);
+  }
+  let evenMoreInputs = [];
+  for (const entity in data.entity) {
+    const exists = inputs.find((i) => {
+      if (i) {
+        return [i?.name, i.id].includes(entity)
+      }
+    });
+    if (!exists) {
+      const newProp = {
+        "id": entity,
+        "name": entity
+      }
+      evenMoreInputs.push(newProp)
+    }
+  }
+  inputs = evenMoreInputs.concat(inputs);
+  return uniqBy(inputs, 'id');
+}
+
 function findPropertyDefinition(property) {
+  //TODO: Use data.entityTypesDefinitions!
   const inputs = [];
   for (const defs of data.definitions) {
     const def = find(defs.inputs, p => p.name === property);
     inputs.push(def);
   }
-  //TODO: Merge the inputs definitions?
-  return inputs;
+  return uniqBy(inputs, 'id');
 }
 
 watch($route, (c, o) => {
@@ -117,7 +179,6 @@ const commands = {
     });
     let file = await data.metadataHandle.getFile();
     const content = await file.text();
-    //console.log(content);
     crate = JSON.parse(content);
   },
 
@@ -126,28 +187,29 @@ const commands = {
       data.dirHandle = await window.showDirectoryPicker();
       // reset crate
       data.metadataHandle = null;
-      crate = new ROCrate({}, {array: true, link: true});
       try {
         data.metadataHandle = await data.dirHandle.getFileHandle('ro-crate-metadata.json');
       } catch (error) {
         try {
           data.metadataHandle = await data.dirHandle.getFileHandle('ro-crate-metadata.jsonld');
         } catch (error) {
+          //No metadataHandle found start a new Crate
         }
       }
       if (data.metadataHandle) {
         let file = await data.metadataHandle.getFile();
         const content = await file.text();
-        //console.log(content);
         crate = new ROCrate(JSON.parse(content), {array: true, link: true});
+      } else {
+        crate = new ROCrate({}, {array: true, link: true});
       }
       data.entity = crate.rootDataset;
-      data.definitions = getProfileClasses();
       data.rootId = crate.rootId;
       data.rootName = first(crate.rootDataset['name']) || 'Start';
-      $router.push({query: {id: encodeURIComponent(crate.rootId)}});
+      loadEntity(crate.rootId);
     } catch (error) {
-      console.log(error);
+      console.error(error);
+      window.alert(error);
     }
   },
 
@@ -192,7 +254,6 @@ function handleFileCommand(command) {
 }
 
 async function processFiles({crate, dirHandle, root}) {
-
   for await (const [key, handle] of dirHandle.entries()) {
     let filePath = root ? root + '/' + key : key;
     if (handle.kind === 'directory' && !notThisFiles.includes(key)) {
@@ -207,21 +268,15 @@ async function processFiles({crate, dirHandle, root}) {
   }
 }
 
-function updateEntity({property, index, value, event}) {
-  if (property === '@id') {
-    data.entity[property] = event.target.value;
-  } else {
-    const prop = data.entity[property];
-    prop[index] = event.target.value;
-    data.entity[property] = prop;
-  }
+function updateEntity({property, value}) {
+  data.entity[property] = value;
 }
 
 function addItem({reference, type, property}) {
   const classes = data.profile?.classes;
   const definitions = classes?.[type];
   const newItem = {
-    "@id": `#${uuidv4()}`,
+    "@id": crate.uniqueId('#entity-'),
     "@type": type
   }
   const inputs = definitions?.inputs;
@@ -234,6 +289,16 @@ function addItem({reference, type, property}) {
   }
   crate.addValues(reference, property, newItem);
   loadEntity(newItem['@id']);
+}
+
+function addItemSelectType({reference}) {
+  data.addItemSpan = 6;
+  data.entitySpan = 18;
+}
+
+function hideAddItemSelectType() {
+  data.addItemSpan = 0;
+  data.entitySpan = 24;
 }
 
 </script>
@@ -278,8 +343,8 @@ function addItem({reference, type, property}) {
     <div v-if="data.dirHandle" class="text-large font-600">Selected Directory: {{ data.dirHandle.name }}</div>
   </el-form>
   <div class="describo" v-if="data.dirHandle">
-    <el-col :span="24">
-      <el-row class="p-2">
+    <el-row class="pt-5">
+      <el-col :span="16" class="pl-5">
       <span>
         <el-button :link="true"
                    @click="updateRoute(data.rootId)">
@@ -295,26 +360,76 @@ function addItem({reference, type, property}) {
         </el-button>
         /
       </span>
-      </el-row>
-    </el-col>
-    <el-row class="p-2">
-      <el-col :span="24">
+      </el-col>
+      <el-col :span="8">
+        <el-button v-show="data.addItemSpan===0" @click="addItemSelectType({reference: data.rootId })"><i
+            class="fa-solid fa-plus"></i>Add Property
+        </el-button>
+        <el-button v-show="data.addItemSpan===0" title="This will delete the entity and all its references"
+                   @click="addItemSelectType({reference: data.rootId })"><i
+            class="fa-solid fa-trash"></i>Delete Entity
+        </el-button>
+      </el-col>
+    </el-row>
+    <el-row>
+      <el-col :span="data.entitySpan" class="p-2">
         <el-form label-width="150px">
-          <entity-property v-for="(value, property, index) in data.entity"
-                           :key="property + '_' + value"
-                           :property="property" :value="value" :index="index"
-                           :id="data.entity['@id']"
-                           @load-entity="loadEntity" @update-entity="updateEntity"
-                           :definitions="findPropertyDefinition(property)"
-                           @add-item="addItem"/>
+          <template v-for="def in data.entityTypesDefinitions">
+            <entity-property v-if="data.entity[def.name]"
+                             :key="def.name"
+                             :property="def.name"
+                             :value="data.entity[def.name]"
+                             :index="0"
+                             :id="data.entity['@id']"
+                             :definitions="findPropertyDefinition(def.name)"
+                             @load-entity="loadEntity"
+                             @update-entity="updateEntity"
+                             @delete-entity=""
+                             @add-item="addItem"/>
+            <div v-else>
+              <entity-property
+                  :key="def.name"
+                  :property="def.name"
+                  :index="0"
+                  :value="data.entity[def.name] || ''"
+                  :id="data.entity['@id'] || ''"
+                  :definitions="findPropertyDefinition(def.name)"
+                  @load-entity="loadEntity"
+                  @update-entity="updateEntity"
+                  @delete-entity=""
+                  @add-item="addItem"/>
+            </div>
+          </template>
         </el-form>
+      </el-col>
+      <el-col :span="data.addItemSpan" v-show="data.addItemSpan !== 0"
+              class="bg-blue-100 h-screen">
+        <el-row>
+          <el-button @click="hideAddItemSelectType()">Close</el-button>
+        </el-row>
+        <el-row>
+            Not implemented...
+        </el-row>
       </el-col>
     </el-row>
   </div>
   <div v-else class="flex items-center justify-center h-[calc(100vh-110px)] overflow-auto">
     <div class="font-bold rounded-lg border shadow-lg p-10">
-      Welcome to Crate-O <br/>
-      Select File to start
+      <h2 class="text-2xl text-center">Welcome to Crate-O Select File to start</h2>
+      <el-row class="px-5 py-6 bg-amber-100 text-amber-400">
+        <el-row>
+          <p class="items-center">
+            <i clas="fa-solid fa-5x fa-warning"/>&nbsp;Attention: Using Crate-O on the Ferry/Train/Airplane may cause
+            dizziness... use at your own risk&nbsp;
+          </p>
+        </el-row>
+        <el-row>
+          <el-link underline="underline" href="https://www.webmd.com/brain/dizziness-vertigo" target="_blank"
+                   class="mx-1">
+            more info
+          </el-link>
+        </el-row>
+      </el-row>
     </div>
   </div>
 

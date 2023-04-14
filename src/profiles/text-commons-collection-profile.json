@@ -137,7 +137,7 @@
           "type": [
             "Text"
           ],
-          "multiple": false
+          "multiple": true
         },
         {
           "id": "http://schema.org/spatialCoverage",
@@ -159,10 +159,10 @@
         },
         {
           "id": "http://schema.org/contentLocation",
-          "name": "hasCollectionProtocol",
-          "help": "What place is associated with this collection",
+          "name": "contentLocation",
+          "help": "The location depicted or described in the content. For example, the location in a photograph or painting.",
           "type": [
-            "CollectionProtocol"
+            "ContentLocation"
           ],
           "multiple": false
         },
@@ -259,7 +259,7 @@
           "type": [
             "Text"
           ],
-          "multiple": false
+          "multiple": true
         },
         {
           "id": "http://schema.org/hasCollectionProtocol",

@@ -1,5 +1,5 @@
-import { createApp } from 'vue';
-import { createPinia } from 'pinia';
+import {createApp, inject, provide} from 'vue';
+import {createPinia} from 'pinia';
 import ElementPlus from 'element-plus';
 
 import './styles.css';
@@ -18,4 +18,3 @@ app.use(createPinia())
 app.use(router)
 app.use(ElementPlus)
 app.mount('#app')
-
