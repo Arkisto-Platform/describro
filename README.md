@@ -1,8 +1,6 @@
 # DescribRO
 
-WORK ON THIS REPOSITORY HAS CEASED. FOLLOWING OUR EXPERIMENTS WE DECIDED TO MAKE A NEW TOOL.
-
-See the [Crate-O](https://github.com/Arkisto-Platform/crate-o)
+> # WORK ON THIS EXPERIMENTAL REPOSITORY HAS CEASED. FOLLOWING OUR EXPERIMENTS WE DECIDED TO MAKE A NEW TOOL. See [Crate-O](https://github.com/Arkisto-Platform/crate-o)
 
 
 
